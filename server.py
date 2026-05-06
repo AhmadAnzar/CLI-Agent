@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import ast
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from urllib.parse import urljoin, urlparse
@@ -158,9 +159,15 @@ def read_file(path_value: str) -> str:
 def write_file(args: str) -> str:
     if not args:
         return "Error: tool_args must be a JSON string with path and content."
+    payload = None
     try:
         payload = json.loads(args)
     except json.JSONDecodeError:
+        try:
+            payload = ast.literal_eval(args)
+        except Exception:
+            return "Error: writeFile expects tool_args as JSON with path and content."
+    if not isinstance(payload, dict):
         return "Error: writeFile expects tool_args as JSON with path and content."
 
     path_value = str(payload.get("path", "")).strip()
@@ -272,7 +279,7 @@ def call_model(messages: List[dict]) -> str:
     payload = {
         "model": config["model"],
         "messages": messages,
-        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "2200")),
+        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "6000")),
         "temperature": 0.1,
     }
     headers = {
@@ -308,8 +315,9 @@ def run_agent_events(instruction: str) -> Iterable[dict]:
         {"role": "user", "content": instruction},
     ]
 
-    max_iterations = int(os.getenv("LLM_MAX_ITERATIONS", "8"))
+    max_iterations = int(os.getenv("LLM_MAX_ITERATIONS", "16"))
     empty_content_retries = 0
+    invalid_json_retries = 0
     yield {"type": "status", "content": f"Using model: {get_provider_config()['model']}"}
 
     for iteration in range(1, max_iterations + 1):
@@ -331,8 +339,19 @@ def run_agent_events(instruction: str) -> Iterable[dict]:
         try:
             parsed = extract_json(raw_content)
         except Exception:
-            yield {"type": "warning", "content": "Model returned non-JSON output.", "raw": raw_content[:800]}
-            return
+            invalid_json_retries += 1
+            observation = (
+                "Return one valid JSON step only. "
+                "If writing a large file, still return one complete valid JSON object with escaped content."
+            )
+            yield {"type": "warning", "content": observation, "raw": raw_content[:800]}
+            if invalid_json_retries >= 3:
+                yield {"type": "error", "content": "Model returned invalid JSON three times in a row."}
+                return
+            messages.append({"role": "developer", "content": json.dumps({"step": "OBSERVE", "content": observation})})
+            continue
+
+        invalid_json_retries = 0
 
         step = str(parsed.get("step", "")).upper().strip()
         content = str(parsed.get("content", "")).strip()
@@ -361,6 +380,10 @@ def run_agent_events(instruction: str) -> Iterable[dict]:
             yield {"type": "observe", "content": observation}
             messages.append({"role": "assistant", "content": json.dumps(parsed)})
             messages.append({"role": "developer", "content": json.dumps({"step": "OBSERVE", "content": observation})})
+            validation_error = validate_project_files(instruction)
+            if not validation_error:
+                yield {"type": "final", "content": "All required project files were generated successfully."}
+                return
             continue
         if step == "OUTPUT":
             validation_error = validate_project_files(instruction)

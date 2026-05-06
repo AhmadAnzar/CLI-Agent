@@ -1,6 +1,6 @@
 # GENAI CLI Agent
 
-A simple AI-powered command-line agent that uses LLMs to break down tasks and execute them automatically.
+A simple AI-powered (CLI) command line agent that uses LLMs to break down tasks and execute them automatically.
 
 ## What Does It Do?
 
@@ -16,12 +16,10 @@ The system has two main parts:
 
 1. **Backend (server.py)**: A FastAPI server that runs the AI agent loop
 2. **CLI (cli.py)**: A command-line tool that sends instructions to the backend
-
+3. **prompt.py**: The actual system prompt we are using. 
 ## Installation
 
-### Prerequisites
-- Python 3.8 or higher
-- pip (Python package manager)
+
 
 ### Setup
 
@@ -31,27 +29,13 @@ git clone <your-repo-url>
 cd GENAI-CLI-AGENT
 ```
 
-2. Create a virtual environment:
-```bash
-python -m venv .venv
-```
 
-3. Activate the virtual environment:
-   - **On Windows:**
-     ```bash
-     .venv\Scripts\activate
-     ```
-   - **On Mac/Linux:**
-     ```bash
-     source .venv/bin/activate
-     ```
-
-4. Install dependencies:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Set up your environment variables:
+3. Set up your environment variables:
    - Create a `.env` file in the project root
    - Add your API credentials:
      ```
@@ -121,26 +105,3 @@ GENAI-CLI-AGENT/
 ├── requirements.txt   # Python dependencies
 └── README.md          # This file
 ```
-
-## Troubleshooting
-
-**Port 8000 is already in use:**
-- Find and stop the other process, or use a different port:
-  ```bash
-  uvicorn server:app --host 127.0.0.1 --port 8001
-  ```
-
-**Missing API key error:**
-- Make sure your `.env` file has either `OPENROUTER_API_KEY` or `GROQ_API_KEY`
-
-**Dependencies not installing:**
-- Make sure your virtual environment is activated
-- Try: `pip install --upgrade pip` first
-
-## License
-
-MIT
-
-## Support
-
-Need help? Check your `.env` configuration or make sure both the backend server and CLI are running properly.
